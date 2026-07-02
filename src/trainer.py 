@@ -1,0 +1,31 @@
+import torch 
+from tqdm import tqdm
+
+class Trainer:
+    def __init_(self , model, optimizer, loss_fn, device):
+        self.model = model
+        self.optimizer = optimizer
+        self.loss_fn = loss_fn
+        self.device = device
+    def train(self, dataloader, num_epochs):
+        self.model.train()
+        total_loss = 0.0 
+
+        progress_bar = tqdm(dataloader, desc="Training")
+        for images , labels in progress :
+            images = images.to(self.device)
+            labels = labels.to(self.device)
+
+            self.optimizer.zero_grad()
+
+            outputs = self.model(images)
+            loss = self.loss_fn(outputs, labels)
+
+            loss.backward()
+            self.optimizer.step()
+
+            total_loss += loss.item()
+            progress.set_description(f"loss : {loss.item():.4f}")
+
+            return total_loss / len(dataloader)
+        

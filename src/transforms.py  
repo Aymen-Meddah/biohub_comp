@@ -1,0 +1,20 @@
+import torch 
+class Normalize:
+    def __call__(self, image):
+        image = image.float()
+        image = image / image.max()
+        return image
+    
+class AddChannel :
+    def __call__(self, image):
+        image = image.unsqueeze(0)
+        return image
+class Compose :
+    def __init__(self, transforms):
+        self.transforms = transforms
+
+    def __call__(self, image):
+        for transform in self.transforms:
+            image = transform(image)
+        return image
+        

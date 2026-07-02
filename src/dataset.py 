@@ -1,0 +1,62 @@
+from config import * 
+from src.transforms import compose, Normalize, AddChannel
+
+from pathlib import path 
+import  geff 
+import zarr 
+import torch
+ 
+from torch.utils.data import Dataset, DataLoader
+
+class BioHubDataset(Dataset):
+    def __init__(self ,data_dir, transform=None):
+        self.data_dir = path(data_dir)
+        self.samples = []
+        if transform is None:
+            self.transform = compose([Normalize(), AddChannel()])
+        else:
+            self.transform = transform
+
+        zarr_file = sorted(list(self.data_dir.glob("*.zarr")))
+
+        for zarr_path in zarr_file:
+            geff_path = zarr_path.with_suffix(".geff")
+            if not geff_file.exists():
+                continue
+
+            volume = zarr.open(zarr_file, mode="r")["0"]
+
+            num_frames = volume.shape[0]
+
+            for t in range(num_frames):
+
+                self.samples.append(
+                    {
+                        "zarr": zarr_file,
+                        "geff": geff_file,
+                        "time": t
+                    }
+                )
+
+    def __len__(self):
+
+        return len(self.samples)
+
+    def __getitem__(self, index):
+
+        sample = self.samples[index]
+
+        volume = zarr.open(sample["zarr"], mode="r")["0"]
+
+        image = volume[sample["time"]]
+
+        image = torch.tensor(
+            image,
+            dtype=torch.float32
+        )
+
+        image = self.transform(image)
+
+        graph, metadata = geff.read(sample["geff"])
+
+        return image, graph, metadata

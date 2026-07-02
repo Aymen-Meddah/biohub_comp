@@ -1,0 +1,49 @@
+from pathlib import path 
+import torch
+
+project_name = "Biohub comp "
+version = "1.0.0" 
+
+root_dir = path(__file__).resolve().parent
+
+data_dir = root_dir / "data"
+train_dir = data_dir / "train"
+valid_dir = data_dir / "valid"
+test_dir = data_dir / "test"
+
+models_dir = root_dir / "models"
+
+Checkpoint_dir = models_dir / "checkpoints"
+log_dir = models_dir / "logs"
+output_dir = models_dir / "outputs"
+
+# device 
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+#training
+epochs = 30 
+batch_size = 1 
+learning_rate = 3e-4
+weight_decay = 1e-5
+num_workers = 2 
+pin_memory = True 
+
+# 3D patch 
+patch_size = (96 ,96 , 96)
+
+# save model 
+
+save_best_only = True 
+save_every = 5 
+
+#mixed precision 
+
+use_amp = True
+
+#tensorboard 
+use_tensorboard = True 
+#early stopping 
+early_stopping = True
+patience = 15 
+
