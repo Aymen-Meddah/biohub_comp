@@ -1,0 +1,45 @@
+#project info 
+project_name = "BioHub_Cell_Tracking
+seed = 42
+
+
+#training parameters
+
+
+batch_size = 2 
+learning_rate = 0.0002
+epochs = 100 
+patch_size = (32, 96, 96)
+
+mixed_precision = True
+
+#data parameters
+patch_size :
+
+  -32
+  -96
+  -96
+
+shuffle = True
+
+#model parameters
+model_name : DynUNet
+in_channels : 1
+out_channels : 1
+
+#optimizer parameters
+optimizer_name : AdamW
+weight_decay : 0.0001
+
+#scheduler parameters
+scheduler_name : CosineAnnealingLR
+
+#checkpoint parameters
+save_best_only : True
+
+save_every : 10 
+
+#logging parameters
+tensorboard : true
+save_plots : true
+save_csv : true
