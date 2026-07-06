@@ -1,14 +1,17 @@
-import torch 
+import torch
 import torch.nn as nn 
 from monai.networks.nets import DynUNet 
 
-class BioHubDynUNet(nn.module):
-    def __init__(self,in_channels=1,out_channels=1):
+class Backbone(nn.Module):
+    def __init__(self ,in_channels=1 ,featurs_channels=32):
         super().__init__()
-        self.model = DynUNet(
-            spatial_dims=3,
+        self.network =DynUNet (
+
+            spatial_dims = 3 ,
             in_channels=in_channels,
-            out_channels=out_channels,
+
+            out_channels=feature_channels,
+
             kernel_size=[
                 [3,3,3],
                 [3,3,3],
@@ -16,6 +19,7 @@ class BioHubDynUNet(nn.module):
                 [3,3,3],
                 [3,3,3]
             ],
+
             strides=[
                 [1,1,1],
                 [2,2,2],
@@ -31,13 +35,13 @@ class BioHubDynUNet(nn.module):
                 [2,2,2]
             ],
 
-            deep_supervision=False,
+            res_block=True,
 
-            res_block=True
+            deep_supervision=False
 
         )
-
-    def forward(self, x):
-
-        return self.model(x)
         
+    def forward(self , x):
+        features = self.network(x)
+        return features
+    
