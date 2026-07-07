@@ -93,8 +93,15 @@ class BioHubDataset(Dataset):
 
         sample = self.samples[index]
 
+        zarr_path = sample.get("zarr")
+        if not zarr_path:
+            raise FileNotFoundError(
+                f"Sample '{sample.get('dataset', 'unknown')}' is missing a zarr path. "
+                f"Check the dataset root: {self.data_dir}"
+            )
+
         volume = ZarrReader(
-            sample["zarr"],
+            zarr_path,
             array_key=self.zarr_array_key
         )
 

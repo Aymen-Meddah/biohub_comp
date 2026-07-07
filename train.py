@@ -89,9 +89,12 @@ def main():
         weight_decay=Config.WEIGHT_DECAY,
     )
 
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
-        T_max=Config.SCHEDULER_T_MAX,
+        mode=Config.LR_SCHEDULER_MODE,
+        factor=Config.LR_SCHEDULER_FACTOR,
+        patience=Config.LR_SCHEDULER_PATIENCE,
+        min_lr=Config.LR_SCHEDULER_MIN_LR,
     )
 
     criterion = LossManager()
@@ -136,6 +139,12 @@ def main():
         train_history = trainer.train_epoch(train_loader)
         validation = validator.validate(validation_loader)
         score = float(validation["metrics"]["f1"])
+
+        if scheduler is not None:
+            if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                scheduler.step(score)
+            else:
+                scheduler.step()
 
         entry = {
             "epoch": epoch + 1,

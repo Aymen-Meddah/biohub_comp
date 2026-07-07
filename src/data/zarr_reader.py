@@ -7,7 +7,7 @@ import numpy as np
 class ZarrReader:
 
     def __init__(self, zarr_path: str | Path, array_key: Optional[str] = None):
-        self.zarr_path = Path(zarr_path)
+        self.zarr_path = self._normalize_path(zarr_path)
 
         if not self.zarr_path.exists():
             raise FileNotFoundError(f"Zarr file not found: {self.zarr_path}")
@@ -21,6 +21,31 @@ class ZarrReader:
 
         store = zarr.open(self.zarr_path, mode="r")
         self.volume = self._select_array(store, zarr, array_key)
+
+    @staticmethod
+    def _normalize_path(zarr_path: Optional[str | Path]) -> Path:
+        if zarr_path is None:
+            raise ValueError(
+                "Zarr path is empty. Check that the dataset sample points to a valid .zarr file."
+            )
+
+        if isinstance(zarr_path, Path):
+            candidate = zarr_path
+        else:
+            candidate = str(zarr_path).strip()
+
+        if not candidate:
+            raise ValueError(
+                "Zarr path is empty. Check that the dataset sample points to a valid .zarr file."
+            )
+
+        path = Path(candidate).expanduser()
+        if path == Path(".") or str(path).strip() in {"", "."}:
+            raise ValueError(
+                "Zarr path resolves to the current working directory. Provide a real .zarr path."
+            )
+
+        return path
 
     @staticmethod
     def _select_array(store: Any, zarr_module: Any, array_key: Optional[str] = None):

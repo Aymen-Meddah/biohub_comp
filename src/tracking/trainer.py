@@ -148,10 +148,6 @@ class Trainer:
 
             self.scaler.update()
 
-            if self.scheduler is not None:
-
-                self.scheduler.step()
-
             for k in history:
 
                 history[k] += losses[k].item()
