@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import torch
 from torch.utils.data import DataLoader
 
@@ -7,10 +10,15 @@ from src.data.dataset import CellTrackingDataset
 from src.losses.losses import LossManager
 from src.models.model import BioHubModel
 from src.tracking.trainer import Trainer
+from src.utils.checkpoint import CheckpointManager
+from src.utils.logger import Logger
+from src.utils.report import generate_training_report
 from src.validation.validator import Validator
 
-
 Config.create_directories()
+
+LOGGER = Logger(str(Config.LOG_DIR / "training.log"))
+CHECKPOINT_MANAGER = CheckpointManager(str(Config.CHECKPOINT_DIR))
 
 
 def make_loader(dataset, batch_size, shuffle, num_workers):
@@ -19,7 +27,7 @@ def make_loader(dataset, batch_size, shuffle, num_workers):
         "batch_size": batch_size,
         "shuffle": shuffle,
         "num_workers": num_workers,
-        "pin_memory": Config.PIN_MEMORY,
+        "pin_memory": Config.PIN_MEMORY and torch.cuda.is_available(),
         "collate_fn": collate_fn,
     }
 
@@ -30,14 +38,15 @@ def make_loader(dataset, batch_size, shuffle, num_workers):
     return DataLoader(**kwargs)
 
 
+def save_summary(history, report_path):
+    report_path.write_text(json.dumps(history, indent=2), encoding="utf-8")
+
+
 def main():
     Config.validate_dataset_exists()
 
-    device = torch.device(
-        "cuda"
-        if torch.cuda.is_available()
-        else "cpu"
-    )
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    LOGGER.info(f"Using device: {device}")
 
     train_dataset = CellTrackingDataset(
         data_dir=Config.TRAIN_DIR,
@@ -59,14 +68,14 @@ def main():
         train_dataset,
         batch_size=Config.BATCH_SIZE,
         shuffle=True,
-        num_workers=Config.NUM_WORKERS,
+        num_workers=max(0, Config.NUM_WORKERS - 1),
     )
 
     validation_loader = make_loader(
         validation_dataset,
         batch_size=Config.VALIDATION_BATCH_SIZE,
         shuffle=False,
-        num_workers=Config.VALIDATION_NUM_WORKERS,
+        num_workers=0,
     )
 
     model = BioHubModel().to(device)
@@ -100,31 +109,71 @@ def main():
         max_distance=Config.MATCHING_DISTANCE,
     )
 
+    start_epoch = 0
     best_score = 0.0
+    checkpoint_path = Config.CHECKPOINT_DIR / "latest_checkpoint.pth"
 
-    for epoch in range(Config.EPOCHS):
-        print(f"\nEpoch {epoch + 1}/{Config.EPOCHS}")
+    if checkpoint_path.exists():
+        checkpoint = CHECKPOINT_MANAGER.load(
+            model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            filename=checkpoint_path.name,
+            device=device,
+        )
+        start_epoch = int(checkpoint["epoch"]) + 1
+        best_score = float(checkpoint.get("score", 0.0))
+        LOGGER.info(f"Resumed from epoch {start_epoch}")
+
+    history = []
+
+    for epoch in range(start_epoch, Config.EPOCHS):
+        LOGGER.info(f"Epoch {epoch + 1}/{Config.EPOCHS}")
 
         train_history = trainer.train_epoch(train_loader)
         validation = validator.validate(validation_loader)
-        score = validation["metrics"]["f1"]
+        score = float(validation["metrics"]["f1"])
 
-        print(train_history)
-        print(validation["metrics"])
+        entry = {
+            "epoch": epoch + 1,
+            "train": train_history,
+            "validation": validation["metrics"],
+            "best_score": max(best_score, score),
+        }
+        history.append(entry)
+
+        LOGGER.info(json.dumps(entry, indent=2))
 
         if score > best_score:
             best_score = score
-
-            torch.save(
-                {
-                    "epoch": epoch,
-                    "model": model.state_dict(),
-                    "optimizer": optimizer.state_dict(),
-                    "score": score,
-                },
-                Config.CHECKPOINT_PATH,
+            CHECKPOINT_MANAGER.save(
+                model=model,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                epoch=epoch,
+                score=score,
+                config={"epochs": Config.EPOCHS, "batch_size": Config.BATCH_SIZE},
+                filename="best_model.pth",
             )
-            print("Best model saved.")
+            LOGGER.info("Best checkpoint saved.")
+
+        CHECKPOINT_MANAGER.save(
+            model=model,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            epoch=epoch,
+            score=best_score,
+            config={"epochs": Config.EPOCHS, "batch_size": Config.BATCH_SIZE},
+            filename="latest_checkpoint.pth",
+        )
+
+        save_summary(history, Config.OUTPUT_DIR / "training_summary.json")
+
+    LOGGER.info("Training completed.")
+    generate_training_report(
+        Config.OUTPUT_DIR / "training_summary.json",
+        Config.OUTPUT_DIR,
+    )
 
 
 if __name__ == "__main__":

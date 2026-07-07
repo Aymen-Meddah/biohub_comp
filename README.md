@@ -95,4 +95,9 @@ Kaggle
 
 # Current Status
 
-Project initialization...
+Production-ready training workflow added with:
+- automatic dataset detection for Kaggle input
+- resumable checkpoints
+- structured logs and summary reports under outputs
+- memory-safe DataLoader defaults
+- AMP-compatible trainer setup
