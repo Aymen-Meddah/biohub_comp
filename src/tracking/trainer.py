@@ -1,7 +1,7 @@
 import torch
 
-from torch.cuda.amp import autocast
-from torch.cuda.amp import GradScaler
+from torch.amp import autocast
+from torch.amp import GradScaler
 
 from tqdm import tqdm
 
@@ -43,7 +43,8 @@ class Trainer:
         self.gradient_clip = gradient_clip
 
         self.scaler = GradScaler(
-            enabled=use_amp
+            device="cuda" if device.type == "cuda" else "cpu",
+            enabled=use_amp and device.type == "cuda",
         )
 
     def train_epoch(

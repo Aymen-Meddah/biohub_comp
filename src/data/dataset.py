@@ -121,28 +121,30 @@ class BioHubDataset(Dataset):
             patch
         )
 
+        spatial_shape = image.shape[-3:]
+
         heatmap = self.heatmap_builder.generate(
-            image.shape,
+            spatial_shape,
             cells
         )
 
         offset = self.offset_builder.generate(
-            image.shape,
+            spatial_shape,
             cells
         )
 
         radius = self.radius_builder.generate(
-            image.shape,
+            spatial_shape,
             cells
         )
 
         division = self.division_builder.generate(
-            image.shape,
+            spatial_shape,
             cells
         )
 
         embedding = self.embedding_builder.generate(
-            image.shape,
+            spatial_shape,
             cells
         )
         confidence = np.ones_like(
@@ -188,10 +190,12 @@ class BioHubDataset(Dataset):
     @staticmethod
     def _normalize_image(image):
         image = np.asarray(image, dtype=np.float32)
+        if image.ndim == 3:
+            image = image[None, ...]
         max_value = float(np.max(image))
         if max_value > 0:
             image = image / max_value
-        return image[None, ...]
+        return image
 
 
 CellTrackingDataset = BioHubDataset
