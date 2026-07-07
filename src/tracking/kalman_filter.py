@@ -1,11 +1,20 @@
 import numpy as np
 
-from filterpy.kalman import KalmanFilter
+try:
+    from filterpy.kalman import KalmanFilter
+except ImportError:
+    KalmanFilter = None
 
 
 class CellKalmanFilter:
 
     def __init__(self):
+
+        if KalmanFilter is None:
+            self.filter = None
+            self._position = np.zeros(3, dtype=float)
+            self._velocity = np.zeros(3, dtype=float)
+            return
 
         self.filter = KalmanFilter(
 
@@ -71,7 +80,7 @@ class CellKalmanFilter:
 
     ):
 
-        self.filter.x = np.array(
+        values = np.array(
 
             [
 
@@ -93,7 +102,17 @@ class CellKalmanFilter:
 
         )
 
+        if self.filter is None:
+            self._velocity = values[:3] - self._position
+            self._position = values[:3]
+            return
+
+        self.filter.x = values
+
     def predict(self):
+
+        if self.filter is None:
+            return self._position.copy()
 
         self.filter.predict()
 
@@ -110,6 +129,12 @@ class CellKalmanFilter:
         x
 
     ):
+
+        if self.filter is None:
+            new_position = np.array([z, y, x], dtype=float)
+            self._velocity = new_position - self._position
+            self._position = new_position
+            return self._position.copy()
 
         self.filter.update(
 
@@ -136,9 +161,15 @@ class CellKalmanFilter:
     @property
     def position(self):
 
+        if self.filter is None:
+            return self._position.copy()
+
         return self.filter.x[:3].copy()
 
     @property
     def velocity(self):
+
+        if self.filter is None:
+            return self._velocity.copy()
 
         return self.filter.x[3:].copy()

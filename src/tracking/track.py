@@ -9,7 +9,7 @@ class Track:
 
         track_id,
 
-        first_cell
+        first_cell=None
 
     ):
 
@@ -27,9 +27,16 @@ class Track:
 
         self.history = deque()
 
-        self.add_detection(
-            first_cell
-        )
+        self.nodes = []
+
+        self.kalman = None
+
+        self.missing = 0
+
+        if first_cell is not None:
+            self.add_node(
+                first_cell
+            )
 
     def add_detection(
 
@@ -43,9 +50,23 @@ class Track:
 
         self.last_detection = cell
 
+        if hasattr(cell, "track_id"):
+            cell.track_id = self.id
+
         self.age += 1
 
         self.missed = 0
+
+        self.missing = 0
+
+    def add_node(
+        self,
+        node
+    ):
+
+        self.nodes.append(node)
+
+        self.add_detection(node)
 
     def mark_missed(self):
 
@@ -80,30 +101,45 @@ class Track:
     @property
     def t(self):
 
-        return self.last_detection["t"]
+        return self._value("t")
 
     @property
     def z(self):
 
-        return self.last_detection["z"]
+        return self._value("z")
 
     @property
     def y(self):
 
-        return self.last_detection["y"]
+        return self._value("y")
 
     @property
     def x(self):
 
-        return self.last_detection["x"]
+        return self._value("x")
 
     @property
     def embedding(self):
 
-        return self.last_detection.get(
-            "embedding",
-            None
+        if isinstance(self.last_detection, dict):
+            return self.last_detection.get(
+                "embedding",
+                None
+            )
+        return getattr(self.last_detection, "embedding", None)
+
+    @property
+    def position(self):
+        return (
+            self.z,
+            self.y,
+            self.x
         )
+
+    def _value(self, key):
+        if isinstance(self.last_detection, dict):
+            return self.last_detection[key]
+        return getattr(self.last_detection, key)
 
     def to_dict(self):
 

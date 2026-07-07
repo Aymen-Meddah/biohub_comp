@@ -31,6 +31,8 @@ def make_loader(dataset, batch_size, shuffle, num_workers):
 
 
 def main():
+    Config.validate_dataset_exists()
+
     device = torch.device(
         "cuda"
         if torch.cuda.is_available()

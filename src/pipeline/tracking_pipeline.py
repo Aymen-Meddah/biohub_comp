@@ -49,13 +49,18 @@ class TrackingPipeline:
 
     ):
 
+        import torch
+
         self.model.eval()
 
-        outputs = self.model(
+        with torch.no_grad():
+            image = image.to(self.device)
 
-            image
+            outputs = self.model(
 
-        )
+                image
+
+            )
 
         nodes = self.decoder.decode(
 

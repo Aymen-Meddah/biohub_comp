@@ -1,20 +1,50 @@
 from pathlib import Path
-import torch
+import os
 
 from src.utils.download_data import get_dataset_path
 
 
-class Config:
+def _worker_count(default=2, maximum=4):
+    cpu_count = os.cpu_count() or default
+    return max(0, min(maximum, cpu_count))
+
+
+class ConfigMeta(type):
+
+    _data_root = None
+
+    @property
+    def DATA_ROOT(cls):
+        if cls._data_root is None:
+            cls._data_root = Path(get_dataset_path())
+        return cls._data_root
+
+    @property
+    def TRAIN_DIR(cls):
+        return cls.DATA_ROOT / "train"
+
+    @property
+    def TEST_DIR(cls):
+        return cls.DATA_ROOT / "test"
+
+    @property
+    def SAMPLE_SUBMISSION(cls):
+        return cls.DATA_ROOT / "sample_submission.csv"
+
+    @property
+    def DEVICE(cls):
+        import torch
+
+        return torch.device(
+            "cuda"
+            if torch.cuda.is_available()
+            else "cpu"
+        )
+
+
+class Config(metaclass=ConfigMeta):
 
     PROJECT_ROOT = Path(__file__).resolve().parent
-
-    DATA_ROOT = Path(get_dataset_path())
-
-    TRAIN_DIR = DATA_ROOT / "train"
-
-    TEST_DIR = DATA_ROOT / "test"
-
-    SAMPLE_SUBMISSION = DATA_ROOT / "sample_submission.csv"
 
     OUTPUT_DIR = PROJECT_ROOT / "outputs"
 
@@ -30,9 +60,9 @@ class Config:
 
     VALIDATION_BATCH_SIZE = 1
 
-    NUM_WORKERS = 4
+    NUM_WORKERS = _worker_count(default=2, maximum=4)
 
-    VALIDATION_NUM_WORKERS = 2
+    VALIDATION_NUM_WORKERS = max(0, min(2, NUM_WORKERS))
 
     PIN_MEMORY = True
 
@@ -64,16 +94,6 @@ class Config:
 
     RANDOM_SEED = 42
 
-    DEVICE = torch.device(
-
-        "cuda"
-
-        if torch.cuda.is_available()
-
-        else "cpu"
-
-    )
-
     AMP = True
 
     SAVE_BEST_ONLY = True
@@ -87,6 +107,25 @@ class Config:
     LAST_CHECKPOINT_PATH = CHECKPOINT_DIR / LAST_CHECKPOINT_NAME
 
     SUBMISSION_NAME = "submission.csv"
+
+    @classmethod
+    def validate_dataset_exists(cls, require_test=False):
+        missing = []
+        if not cls.DATA_ROOT.exists():
+            missing.append(cls.DATA_ROOT)
+        if not cls.TRAIN_DIR.exists():
+            missing.append(cls.TRAIN_DIR)
+        if require_test and not cls.TEST_DIR.exists():
+            missing.append(cls.TEST_DIR)
+
+        if missing:
+            paths = ", ".join(str(path) for path in missing)
+            raise FileNotFoundError(
+                "BioHub dataset is incomplete or missing. Expected Kaggle "
+                f"dataset structure with train/ and test/. Missing: {paths}"
+            )
+
+        return True
 
     @classmethod
     def create_directories(cls):

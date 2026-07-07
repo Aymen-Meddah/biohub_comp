@@ -1,6 +1,5 @@
 from pathlib import Path
 import numpy as np
-import zarr
 
 
 class ZarrReader:
@@ -12,15 +11,23 @@ class ZarrReader:
             raise FileNotFoundError(
                 f"Zarr file not found: {self.zarr_path}"
             )
+        try:
+            import zarr
+        except ImportError as exc:
+            raise ImportError(
+                "The 'zarr' package is required to read BioHub zarr files. "
+                "Install the project requirements before loading data."
+            ) from exc
+
         store = zarr.open(
             self.zarr_path,
             mode="r"
         )
-        self.volume = self._select_array(store, array_key)
+        self.volume = self._select_array(store, zarr, array_key)
 
     @staticmethod
-    def _select_array(store, array_key=None):
-        if isinstance(store, zarr.Array):
+    def _select_array(store, zarr_module, array_key=None):
+        if isinstance(store, zarr_module.Array):
             return store
 
         if array_key is not None:
@@ -28,13 +35,13 @@ class ZarrReader:
 
         preferred_keys = ("0", "raw", "image", "images", "volume")
         for key in preferred_keys:
-            if key in store and isinstance(store[key], zarr.Array):
+            if key in store and isinstance(store[key], zarr_module.Array):
                 return store[key]
 
         arrays = [
             key
             for key, value in store.items()
-            if isinstance(value, zarr.Array)
+            if isinstance(value, zarr_module.Array)
         ]
         if not arrays:
             raise ValueError("No array found inside zarr group.")

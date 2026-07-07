@@ -98,3 +98,6 @@ class GeffReader:
             f"nodes={self.number_of_nodes}, "
             f"edges={self.number_of_edges})"
         )
+
+
+GEFFReader = GeffReader

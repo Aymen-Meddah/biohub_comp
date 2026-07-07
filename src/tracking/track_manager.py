@@ -8,9 +8,13 @@ class TrackManager:
 
         self,
 
-        max_missing=5
+        max_missing=5,
+        max_missed=None
 
     ):
+
+        if max_missed is not None:
+            max_missing = max_missed
 
         self.max_missing = max_missing
 
@@ -27,27 +31,18 @@ class TrackManager:
     ):
 
         track = Track(
-
-            self.next_track_id
-
-        )
-
-        track.add_node(
-
+            self.next_track_id,
             node
-
         )
 
         kf = CellKalmanFilter()
 
+        z, y, x = self._coordinates(node)
+
         kf.initialize(
-
-            node.z,
-
-            node.y,
-
-            node.x
-
+            z,
+            y,
+            x
         )
 
         track.kalman = kf
@@ -70,13 +65,12 @@ class TrackManager:
 
     ):
 
+        if isinstance(track, int):
+            track = self.get_track(track)
+
         track.kalman.update(
 
-            node.z,
-
-            node.y,
-
-            node.x
+            *self._coordinates(node)
 
         )
 
@@ -92,7 +86,8 @@ class TrackManager:
 
         for track in self.tracks:
 
-            track.kalman.predict()
+            if track.kalman is not None:
+                track.kalman.predict()
 
             track.missing += 1
 
@@ -119,3 +114,26 @@ class TrackManager:
             if track.missing == 0
 
         ]
+
+    def all_tracks(self):
+        return list(self.tracks)
+
+    def get_track(self, track_id):
+        for track in self.tracks:
+            if track.id == track_id:
+                return track
+        raise KeyError(f"Track not found: {track_id}")
+
+    def mark_missed(self, track_id):
+        for track in self.tracks:
+            if track.id == track_id:
+                track.mark_missed()
+                track.missing = track.missed
+                return track
+        raise KeyError(f"Track not found: {track_id}")
+
+    @staticmethod
+    def _coordinates(node):
+        if isinstance(node, dict):
+            return node["z"], node["y"], node["x"]
+        return node.z, node.y, node.x
