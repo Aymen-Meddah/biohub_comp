@@ -17,30 +17,30 @@ class BaseHead(nn.Module):
 
             nn.Conv3d(
                 in_channels,
-                hidden_channels,
+                max(8, hidden_channels // 2),
                 kernel_size=3,
                 padding=1,
                 bias=False
             ),
 
-            nn.BatchNorm3d(hidden_channels),
+            nn.BatchNorm3d(max(8, hidden_channels // 2)),
 
             nn.ReLU(inplace=True),
 
             nn.Conv3d(
-                hidden_channels,
-                hidden_channels,
+                max(8, hidden_channels // 2),
+                max(8, hidden_channels // 2),
                 kernel_size=3,
                 padding=1,
                 bias=False
             ),
 
-            nn.BatchNorm3d(hidden_channels),
+            nn.BatchNorm3d(max(8, hidden_channels // 2)),
 
             nn.ReLU(inplace=True),
 
             nn.Conv3d(
-                hidden_channels,
+                max(8, hidden_channels // 2),
                 out_channels,
                 kernel_size=1
             )

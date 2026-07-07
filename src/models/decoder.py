@@ -67,21 +67,21 @@ class Decoder(nn.Module):
         super().__init__()
 
         self.up3 = UpBlock(
-            256,
-            128,
-            128
-        )
-
-        self.up2 = UpBlock(
             128,
             64,
             64
         )
 
-        self.up1 = UpBlock(
+        self.up2 = UpBlock(
             64,
             32,
             32
+        )
+
+        self.up1 = UpBlock(
+            32,
+            16,
+            16
         )
 
     def forward(

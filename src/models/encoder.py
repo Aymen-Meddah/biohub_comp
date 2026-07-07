@@ -13,47 +13,47 @@ class Encoder(nn.Module):
 
         # Stage 1
         self.stage1 = nn.Sequential(
-            ConvBlock(1, 32),
-            ResidualBlock(32)
+            ConvBlock(1, 16),
+            ResidualBlock(16)
         )
 
         # Down 1
         self.down1 = ConvBlock(
+            16,
             32,
-            64,
             stride=2
         )
 
         # Stage 2
         self.stage2 = nn.Sequential(
-            ResidualBlock(64),
-            ResidualBlock(64)
+            ResidualBlock(32),
+            ResidualBlock(32)
         )
 
         # Down 2
         self.down2 = ConvBlock(
+            32,
             64,
-            128,
             stride=2
         )
 
         # Stage 3
         self.stage3 = nn.Sequential(
-            ResidualBlock(128),
-            ResidualBlock(128)
+            ResidualBlock(64),
+            ResidualBlock(64)
         )
 
         # Down 3
         self.down3 = ConvBlock(
+            64,
             128,
-            256,
             stride=2
         )
 
         # Bottleneck
         self.bottleneck = nn.Sequential(
-            ResidualBlock(256),
-            ResidualBlock(256)
+            ResidualBlock(128),
+            ResidualBlock(128)
         )
 
     def forward(self, x):

@@ -48,6 +48,9 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     LOGGER.info(f"Using device: {device}")
 
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+
     train_dataset = CellTrackingDataset(
         data_dir=Config.TRAIN_DIR,
         split="train",
@@ -68,7 +71,7 @@ def main():
         train_dataset,
         batch_size=Config.BATCH_SIZE,
         shuffle=True,
-        num_workers=max(0, Config.NUM_WORKERS - 1),
+        num_workers=0,
     )
 
     validation_loader = make_loader(

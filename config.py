@@ -56,13 +56,13 @@ class Config(metaclass=ConfigMeta):
 
     CACHE_DIR = OUTPUT_DIR / "cache"
 
-    BATCH_SIZE = 2
+    BATCH_SIZE = 1
 
     VALIDATION_BATCH_SIZE = 1
 
-    NUM_WORKERS = _worker_count(default=2, maximum=4)
+    NUM_WORKERS = 0
 
-    VALIDATION_NUM_WORKERS = max(0, min(2, NUM_WORKERS))
+    VALIDATION_NUM_WORKERS = 0
 
     PIN_MEMORY = True
 
@@ -78,7 +78,7 @@ class Config(metaclass=ConfigMeta):
 
     SCHEDULER_T_MAX = EPOCHS
 
-    IMAGE_SIZE = (64, 256, 256)
+    IMAGE_SIZE = (32, 128, 128)
 
     HEATMAP_SIGMA = 2.5
 

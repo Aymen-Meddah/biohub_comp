@@ -31,18 +31,18 @@ class BioHubModel(nn.Module):
         # Heads
         ####################################################
 
-        self.heatmap_head = HeatmapHead(32)
+        self.heatmap_head = HeatmapHead(16)
 
-        self.offset_head = OffsetHead(32)
+        self.offset_head = OffsetHead(16)
 
-        self.radius_head = RadiusHead(32)
+        self.radius_head = RadiusHead(16)
 
-        self.division_head = DivisionHead(32)
+        self.division_head = DivisionHead(16)
 
-        self.confidence_head = ConfidenceHead(32)
+        self.confidence_head = ConfidenceHead(16)
 
         self.embedding_head = EmbeddingHead(
-            32,
+            16,
             embedding_dim=16
         )
 
