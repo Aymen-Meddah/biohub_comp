@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any, Optional
 
 
 class GeffReader:
@@ -9,12 +10,10 @@ class GeffReader:
     X_KEYS = ("x", "X", "centroid_x", "position_x")
     RADIUS_KEYS = ("radius", "r", "cell_radius")
 
-    def __init__(self, geff_path):
+    def __init__(self, geff_path: str | Path):
         self.geff_path = Path(geff_path)
         if not self.geff_path.exists():
-            raise FileNotFoundError(
-                f"GEFF file not found: {self.geff_path}"
-            )
+            raise FileNotFoundError(f"GEFF file not found: {self.geff_path}")
 
         try:
             import geff
@@ -23,7 +22,14 @@ class GeffReader:
                 "The 'geff' package is required to read BioHub metadata."
             ) from exc
 
-        self.graph, self.metadata = geff.read(self.geff_path)
+        self._geff_module = geff
+        self.graph, self.metadata = self._read_graph()
+
+    def _read_graph(self) -> tuple[Any, Optional[Any]]:
+        try:
+            return self._geff_module.read(self.geff_path)
+        except TypeError:
+            return self._geff_module.read_graph(self.geff_path), None
 
     @property
     def number_of_nodes(self):

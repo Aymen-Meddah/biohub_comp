@@ -1,19 +1,23 @@
-from torch.utils.data import DataLoader 
+from typing import Any
+
+from torch.utils.data import DataLoader
+
 from src.data.dataset import BioHubDataset
 
-def create_dataloader (
-    data_directory,
-    batch_size=2,
-    shuffle=True,
-    num_workers=2,
-    pin_memory=True,
-    patch_size=(32, 96, 96),
-    split="train"
-):
+
+def create_dataloader(
+    data_directory: str,
+    batch_size: int = 2,
+    shuffle: bool = True,
+    num_workers: int = 0,
+    pin_memory: bool = True,
+    patch_size: tuple[int, int, int] = (32, 96, 96),
+    split: str = "train",
+) -> DataLoader[Any]:
     dataset = BioHubDataset(
         data_dir=data_directory,
         patch_size=patch_size,
-        split=split
+        split=split,
     )
 
     loader = DataLoader(
@@ -21,8 +25,8 @@ def create_dataloader (
         batch_size=batch_size,
         shuffle=shuffle,
         num_workers=num_workers,
-        pin_memory=pin_memory,
-        drop_last=False
+        pin_memory=pin_memory and __import__("torch").cuda.is_available(),
+        drop_last=False,
     )
 
     return loader

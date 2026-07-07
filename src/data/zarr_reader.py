@@ -1,16 +1,16 @@
 from pathlib import Path
+from typing import Any, Optional
+
 import numpy as np
 
 
 class ZarrReader:
 
-    def __init__(self, zarr_path, array_key=None):
+    def __init__(self, zarr_path: str | Path, array_key: Optional[str] = None):
         self.zarr_path = Path(zarr_path)
 
         if not self.zarr_path.exists():
-            raise FileNotFoundError(
-                f"Zarr file not found: {self.zarr_path}"
-            )
+            raise FileNotFoundError(f"Zarr file not found: {self.zarr_path}")
         try:
             import zarr
         except ImportError as exc:
@@ -19,15 +19,12 @@ class ZarrReader:
                 "Install the project requirements before loading data."
             ) from exc
 
-        store = zarr.open(
-            self.zarr_path,
-            mode="r"
-        )
+        store = zarr.open(self.zarr_path, mode="r")
         self.volume = self._select_array(store, zarr, array_key)
 
     @staticmethod
-    def _select_array(store, zarr_module, array_key=None):
-        if isinstance(store, zarr_module.Array):
+    def _select_array(store: Any, zarr_module: Any, array_key: Optional[str] = None):
+        if hasattr(store, "shape") and hasattr(store, "dtype"):
             return store
 
         if array_key is not None:
@@ -35,13 +32,13 @@ class ZarrReader:
 
         preferred_keys = ("0", "raw", "image", "images", "volume")
         for key in preferred_keys:
-            if key in store and isinstance(store[key], zarr_module.Array):
+            if key in store and hasattr(store[key], "shape") and hasattr(store[key], "dtype"):
                 return store[key]
 
         arrays = [
             key
             for key, value in store.items()
-            if isinstance(value, zarr_module.Array)
+            if hasattr(value, "shape") and hasattr(value, "dtype")
         ]
         if not arrays:
             raise ValueError("No array found inside zarr group.")

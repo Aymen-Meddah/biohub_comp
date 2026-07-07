@@ -102,9 +102,8 @@ class Trainer:
             )
 
             with autocast(
-
-                enabled=self.use_amp
-
+                device_type=self.device.type,
+                enabled=self.use_amp and self.device.type == "cuda",
             ):
 
                 outputs = self.model(
