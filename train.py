@@ -14,6 +14,10 @@ from src.validation.validator import Validator
 
 from config import Config
 
+from config import Config
+
+Config.create_directories()
+
 def main():
 
     device = torch.device(
