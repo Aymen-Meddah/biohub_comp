@@ -1,16 +1,16 @@
 from pathlib import Path
+import os
 
-
-KAGGLE_COMPETITION_PATH = Path(
-    "/kaggle/input/competitions/biohub-cell-tracking-during-development"
-)
+KAGGLE_DATASET_PATHS = [
+    Path("/kaggle/input/biohub-cell-tracking-during-development"),
+    Path("/kaggle/input/competitions/biohub-cell-tracking-during-development"),
+]
 
 
 def get_dataset_path() -> Path:
-    if KAGGLE_COMPETITION_PATH.exists():
-        return KAGGLE_COMPETITION_PATH
-
-    import os
+    for path in KAGGLE_DATASET_PATHS:
+        if path.exists():
+            return path
 
     env_path = os.environ.get("BIOHUB_DATA_ROOT")
     if env_path:
@@ -19,12 +19,15 @@ def get_dataset_path() -> Path:
     try:
         import kagglehub
 
-        path = kagglehub.competition_download(
-            "biohub-cell-tracking-during-development"
+        return Path(
+            kagglehub.competition_download(
+                "biohub-cell-tracking-during-development"
+            )
         )
-        return Path(path)
     except ImportError as exc:
         raise FileNotFoundError(
-            "BioHub dataset not found at the Kaggle input path. Set "
-            "BIOHUB_DATA_ROOT to the directory containing train/ and test/."
+            "BioHub dataset not found. Either:\n"
+            "- Add the competition as a Kaggle Notebook Input,\n"
+            "- Set the BIOHUB_DATA_ROOT environment variable,\n"
+            "- Or install kagglehub to download it automatically."
         ) from exc
