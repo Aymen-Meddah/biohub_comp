@@ -46,75 +46,83 @@ class CellDecoder:
             outputs["confidence"][0, 0]
         ).detach().cpu().numpy()
 
-        peaks = self.peak_finder.find(
+        peaks = self.peak_finder.find(heatmap)
 
-            heatmap
-
-        )
+        if peaks is None:
+            peaks = []
 
         nodes = []
 
         for index, peak in enumerate(peaks):
 
-            z = peak["z"]
+            if not isinstance(peak, dict):
+                continue
 
-            y = peak["y"]
+            z = peak.get("z")
+            y = peak.get("y")
+            x = peak.get("x")
 
-            x = peak["x"]
+            if None in (z, y, x):
+                continue
 
-            node = Node(
+            if not (
+                0 <= z < heatmap.shape[0]
+                and 0 <= y < heatmap.shape[1]
+                and 0 <= x < heatmap.shape[2]
+            ):
+                continue
 
-                node_id=index,
+            try:
+                node = Node(
 
-                dataset=dataset,
+                    node_id=index,
 
-                t=timepoint,
+                    dataset=dataset,
 
-                z=float(
+                    t=timepoint,
 
-                    z + offsets[0, z, y, x]
+                    z=float(
 
-                ),
+                        z + offsets[0, z, y, x]
 
-                y=float(
+                    ),
 
-                y + offsets[1, z, y, x]
+                    y=float(
 
-                ),
+                        y + offsets[1, z, y, x]
 
-                x=float(
+                    ),
 
-                x + offsets[2, z, y, x]
+                    x=float(
 
-            ),
+                        x + offsets[2, z, y, x]
 
-                confidence=float(
+                    ),
 
-                    confidence[z, y, x]
+                    confidence=float(
 
-            ),
+                        confidence[z, y, x]
 
-                embedding=embedding[
-                :,
-                z,
-                y,
-                x
-                ].tolist(),
+                    ),
 
-            division_probability=float(
+                    embedding=embedding[
+                        :,
+                        z,
+                        y,
+                        x
+                    ].tolist(),
 
-                division[z, y, x]
+                    division_probability=float(
 
-            )
+                        division[z, y, x]
 
-        )
+                    )
 
-        node.radius = float(
+                )
+            except (IndexError, ValueError, TypeError):
+                continue
 
-            radius[z, y, x]
-
-        )
-
-        nodes.append(node)
+            node.radius = float(radius[z, y, x])
+            nodes.append(node)
 
         return nodes
