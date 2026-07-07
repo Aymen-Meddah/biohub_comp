@@ -90,7 +90,9 @@ class Trainer:
 
                 "division":batch["division"].to(self.device),
 
-                "embedding":batch["embedding"].to(self.device)
+                "embedding":batch["embedding"].to(self.device),
+
+                "confidence":batch["confidence"].to(self.device)
 
             }
 

@@ -1,32 +1,37 @@
 from pathlib import Path
 
-class IndexBuilder :
-    def __init__(self ,train_diractory):
-        self.train_diractory = Path(train_diractory)
-        if not self.train_directory.exists():
-            raise FileNotFoundError(f"Train directory not found: {self.train_directory}")
+
+class IndexBuilder:
+
+    def __init__(self, data_directory):
+        self.data_directory = Path(data_directory)
+        if not self.data_directory.exists():
+            raise FileNotFoundError(
+                f"Data directory not found: {self.data_directory}"
+            )
         self.samples = []
 
-    def buiuld(self):
+    def build(self):
         self.samples.clear()
-        zarr_files = sorted(self.train_directory.glob("*.zarr"))
-        for zarr_path in zarr_files :
+        zarr_files = sorted(self.data_directory.glob("*.zarr"))
+
+        for zarr_path in zarr_files:
             dataset_name = zarr_path.stem
-            geff_path = self.train_diractory / f"{dataset_name}.geff"
+            geff_path = self.data_directory / f"{dataset_name}.geff"
 
             if not geff_path.exists():
                 continue
 
             self.samples.append({
 
-                "dataset": dataset_name ,
+                "dataset": dataset_name,
                 "zarr": zarr_path,
-                "geff": geff_path
+                "geff": geff_path,
             })
         return self.samples
-    def __getitem__(self, index):
+
+    def __len__(self):
         return len(self.samples)
-    def __getitem__(self,index):
+
+    def __getitem__(self, index):
         return self.samples[index]
-        
-        

@@ -5,13 +5,15 @@ class PatchSampler :
     def random_patch(self , volume_shape):
         T, Z, Y, X = volume_shape
 
-        pz, py, px = self.patch_size
+        pz = min(self.patch_size[0], Z)
+        py = min(self.patch_size[1], Y)
+        px = min(self.patch_size[2], X)
 
         t = random.randint(0, T - 1)
 
-        z0 = random.randint(0, Z - pz)
-        y0 = random.randint(0, Y - py)
-        x0 = random.randint(0, X - px)
+        z0 = random.randint(0, max(0, Z - pz))
+        y0 = random.randint(0, max(0, Y - py))
+        x0 = random.randint(0, max(0, X - px))
 
         return {
 

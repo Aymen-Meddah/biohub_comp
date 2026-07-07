@@ -93,7 +93,7 @@ class Evaluator:
 
             )
 
-            targets = batch["nodes"][0]
+            targets = batch["cells"][0]
 
             matches, fp, fn = self.matcher.match(
 

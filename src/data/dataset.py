@@ -1,5 +1,9 @@
+from pathlib import Path
+
+import numpy as np
 from torch.utils.data import Dataset
 
+from config import Config
 from src.data.index_builder import IndexBuilder
 from src.data.zarr_reader import ZarrReader
 from src.data.geff_reader import GeffReader
@@ -18,15 +22,31 @@ class BioHubDataset(Dataset):
 
     def __init__(
         self,
-        train_dir,
+        data_dir=None,
+        train_dir=None,
+        split="train",
+        validation_fraction=0.2,
         patch_size=(32, 96, 96),
         sigma=2.5,
-        embedding_dim=16
+        embedding_dim=16,
+        zarr_array_key=None
     ):
 
-        self.samples = IndexBuilder(
-            train_dir
-        ).build()
+        if train_dir is not None and data_dir is None:
+            data_dir = train_dir
+        if data_dir is None:
+            data_dir = Config.TRAIN_DIR if split != "test" else Config.TEST_DIR
+
+        self.data_dir = Path(data_dir)
+        self.split = split
+        self.zarr_array_key = zarr_array_key
+
+        samples = IndexBuilder(self.data_dir).build()
+        self.samples = self._split_samples(
+            samples,
+            split,
+            validation_fraction
+        )
 
         self.patch_sampler = PatchSampler(
             patch_size
@@ -48,6 +68,23 @@ class BioHubDataset(Dataset):
             embedding_dim
         )
 
+    @staticmethod
+    def _split_samples(samples, split, validation_fraction):
+        if split not in {"train", "validation", "val", "test", "all"}:
+            raise ValueError(f"Unknown split: {split}")
+        if split in {"test", "all"}:
+            return samples
+
+        if len(samples) <= 1:
+            return samples
+
+        validation_count = max(1, int(round(len(samples) * validation_fraction)))
+        validation_count = min(validation_count, len(samples) - 1)
+
+        if split in {"validation", "val"}:
+            return samples[-validation_count:]
+        return samples[:-validation_count]
+
     def __len__(self):
 
         return len(self.samples)
@@ -57,7 +94,8 @@ class BioHubDataset(Dataset):
         sample = self.samples[index]
 
         volume = ZarrReader(
-            sample["zarr"]
+            sample["zarr"],
+            array_key=self.zarr_array_key
         )
 
         graph = GeffReader(
@@ -72,6 +110,7 @@ class BioHubDataset(Dataset):
             volume,
             patch
         )
+        image = self._normalize_image(image)
 
         nodes = graph.nodes_at_time(
             patch["t"]
@@ -110,19 +149,28 @@ class BioHubDataset(Dataset):
             heatmap,
             dtype=np.float32
         )
+        targets = {
+            "heatmap": heatmap[None, ...],
+            "offset": offset,
+            "radius": radius[None, ...],
+            "division": division[None, ...],
+            "embedding": embedding,
+            "confidence": confidence[None, ...],
+        }
+
         return {
 
             "image": image,
 
-            "heatmap": heatmap,
+            "heatmap": targets["heatmap"],
 
-            "offset": offset,
+            "offset": targets["offset"],
 
-            "radius": radius,
+            "radius": targets["radius"],
 
-            "division": division,
+            "division": targets["division"],
 
-            "embedding": embedding,
+            "embedding": targets["embedding"],
 
             "cells": cells,
 
@@ -130,5 +178,20 @@ class BioHubDataset(Dataset):
 
             "patch": patch,
 
-            "confidence": confidence,
+            "timepoint": patch["t"],
+
+            "confidence": targets["confidence"],
+
+            "targets": targets,
         }
+
+    @staticmethod
+    def _normalize_image(image):
+        image = np.asarray(image, dtype=np.float32)
+        max_value = float(np.max(image))
+        if max_value > 0:
+            image = image / max_value
+        return image[None, ...]
+
+
+CellTrackingDataset = BioHubDataset

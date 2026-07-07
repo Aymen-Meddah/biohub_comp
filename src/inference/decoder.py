@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from src.tracking.node import Node
 from src.inference.peak_finder import PeakFinder
 
@@ -31,17 +32,19 @@ class CellDecoder:
 
     ):
 
-        heatmap = outputs["heatmap"][0, 0]
+        heatmap = torch.sigmoid(outputs["heatmap"][0, 0]).detach().cpu().numpy()
 
-        offsets = outputs["offsets"][0]
+        offsets = outputs["offsets"][0].detach().cpu().numpy()
 
-        radius = outputs["radius"][0, 0]
+        radius = outputs["radius"][0, 0].detach().cpu().numpy()
 
-        embedding = outputs["embedding"][0]
+        embedding = outputs["embedding"][0].detach().cpu().numpy()
 
-        division = outputs["division"][0, 0]
+        division = torch.sigmoid(outputs["division"][0, 0]).detach().cpu().numpy()
 
-        confidence = outputs["confidence"][0, 0]
+        confidence = torch.sigmoid(
+            outputs["confidence"][0, 0]
+        ).detach().cpu().numpy()
 
         peaks = self.peak_finder.find(
 

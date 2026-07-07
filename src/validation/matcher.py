@@ -39,11 +39,11 @@ class Matcher:
 
                 [
 
-                    p.z,
+                    self._coord(p, "z"),
 
-                    p.y,
+                    self._coord(p, "y"),
 
-                    p.x
+                    self._coord(p, "x")
 
                 ]
 
@@ -61,11 +61,11 @@ class Matcher:
 
                 [
 
-                    g.z,
+                    self._coord(g, "z"),
 
-                    g.y,
+                    self._coord(g, "y"),
 
-                    g.x
+                    self._coord(g, "x")
 
                 ]
 
@@ -168,3 +168,9 @@ class Matcher:
             unmatched_targets
 
         )
+
+    @staticmethod
+    def _coord(item, key):
+        if isinstance(item, dict):
+            return item[key]
+        return getattr(item, key)

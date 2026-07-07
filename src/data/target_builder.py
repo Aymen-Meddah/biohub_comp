@@ -1,4 +1,3 @@
-import numpy as np 
 class TargetBuilder :
     def __init__(self):
         pass
@@ -20,8 +19,12 @@ class TargetBuilder :
 
                     "y": y - patch["y0"],
 
-                    "x": x - patch["x0"]
+                    "x": x - patch["x0"],
+
+                    "division": data.get("division", False),
                 })
+                if data.get("radius") is not None:
+                    cells[-1]["radius"] = data["radius"]
         return cells
     def count_cells(self , nodes ,patch):
         return len(self.cells_in_patch(nodes , patch))

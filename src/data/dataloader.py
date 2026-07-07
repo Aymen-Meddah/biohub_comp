@@ -2,16 +2,18 @@ from torch.utils.data import DataLoader
 from src.data.dataset import BioHubDataset
 
 def create_dataloader (
-    train_directory,
+    data_directory,
     batch_size=2,
     shuffle=True,
     num_workers=2,
     pin_memory=True,
-    patch_size=(32, 96, 96)
+    patch_size=(32, 96, 96),
+    split="train"
 ):
     dataset = BioHubDataset(
-        train_directory=train_directory,
-        patch_size=patch_size
+        data_dir=data_directory,
+        patch_size=patch_size,
+        split=split
     )
 
     loader = DataLoader(
