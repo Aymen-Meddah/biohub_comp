@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from config import Config
+from src.utils.seed import set_seed
 from src.data.collate import collate_fn
 from src.data.dataset import CellTrackingDataset
 from src.losses.losses import LossManager
@@ -43,6 +44,7 @@ def save_summary(history, report_path):
 
 
 def main():
+    set_seed(Config.RANDOM_SEED)
     Config.validate_dataset_exists()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
