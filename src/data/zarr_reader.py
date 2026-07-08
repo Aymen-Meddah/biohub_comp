@@ -19,7 +19,7 @@ class ZarrReader:
             ) from exc
 
         try:
-            store = zarr.open(self.zarr_path, mode="r")
+            store = self._open_store(zarr, self.zarr_path)
         except (OSError, RuntimeError, ValueError) as exc:
             raise ValueError(
                 f"Unable to open Zarr data from path: {self.zarr_path}. "
@@ -27,6 +27,59 @@ class ZarrReader:
             ) from exc
 
         self.volume = self._select_array(store, zarr, array_key)
+
+    @staticmethod
+    def _open_store(zarr_module: Any, path: Path):
+        path_str = str(path)
+
+        if path.is_dir():
+            for store_cls_name in ("DirectoryStore", "NestedDirectoryStore"):
+                store_cls = getattr(zarr_module.storage, store_cls_name, None)
+                if store_cls is None:
+                    continue
+                try:
+                    return zarr_module.open(store_cls(path_str), mode="r")
+                except Exception:
+                    continue
+
+            try:
+                if hasattr(zarr_module, "open_consolidated"):
+                    return zarr_module.open_consolidated(path_str)
+            except Exception:
+                pass
+
+            try:
+                return zarr_module.open(path_str, mode="r")
+            except Exception:
+                pass
+
+        if path.is_file():
+            if path.suffix == ".zarr":
+                zip_store_cls = getattr(zarr_module, "ZipStore", None) or getattr(zarr_module.storage, "ZipStore", None)
+                if zip_store_cls is not None:
+                    try:
+                        return zarr_module.open(zip_store_cls(path_str), mode="r")
+                    except Exception:
+                        pass
+
+            try:
+                return zarr_module.open(path_str, mode="r")
+            except Exception:
+                pass
+
+            try:
+                import fsspec
+                fs = fsspec.filesystem("file")
+                fs_store_cls = getattr(zarr_module.storage, "FSStore", None)
+                if fs_store_cls is not None:
+                    return zarr_module.open(fs_store_cls(path_str, mode="r", fs=fs), mode="r")
+            except Exception:
+                pass
+
+        try:
+            return zarr_module.open_group(path_str, mode="r")
+        except Exception as exc:
+            raise exc
 
     @staticmethod
     def _validate_path_exists(path: Path) -> None:

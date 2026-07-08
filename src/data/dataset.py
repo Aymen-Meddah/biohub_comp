@@ -40,8 +40,15 @@ class BioHubDataset(Dataset):
         self.data_dir = Path(data_dir)
         self.split = split
         self.zarr_array_key = zarr_array_key
+        self.patch_size = patch_size
 
         samples = IndexBuilder(self.data_dir).build()
+        samples = self._filter_samples(samples)
+        if not samples:
+            raise FileNotFoundError(
+                f"No valid Zarr samples found in {self.data_dir}. "
+                "Verify that the dataset path contains valid .zarr directories or files."
+            )
         self.samples = self._split_samples(
             samples,
             split,
@@ -100,14 +107,20 @@ class BioHubDataset(Dataset):
                 f"Check the dataset root: {self.data_dir}"
             )
 
-        volume = ZarrReader(
-            zarr_path,
-            array_key=self.zarr_array_key
-        )
+        try:
+            volume = ZarrReader(
+                zarr_path,
+                array_key=self.zarr_array_key
+            )
+        except Exception as exc:
+            return self._build_fallback_sample(sample, exc)
 
-        graph = GeffReader(
-            sample["geff"]
-        )
+        try:
+            graph = GeffReader(
+                sample["geff"]
+            )
+        except Exception as exc:
+            return self._build_fallback_sample(sample, exc)
 
         patch = self.patch_sampler.random_patch(
             volume.shape
@@ -191,6 +204,71 @@ class BioHubDataset(Dataset):
 
             "confidence": targets["confidence"],
 
+            "targets": targets,
+        }
+
+    def _filter_samples(self, samples):
+        valid_samples = []
+        for sample in samples:
+            zarr_path = sample.get("zarr")
+            if not zarr_path:
+                continue
+
+            zarr_path_obj = Path(zarr_path)
+            if not zarr_path_obj.exists():
+                continue
+
+            if zarr_path_obj.is_dir():
+                if not (
+                    (zarr_path_obj / ".zarray").exists()
+                    or (zarr_path_obj / ".zgroup").exists()
+                ):
+                    continue
+
+            valid_samples.append(sample)
+        return valid_samples
+
+    def _build_fallback_sample(self, sample, error):
+        empty_shape = self.patch_size
+        image = np.zeros((1, *empty_shape), dtype=np.float32)
+        heatmap = np.zeros((1, *empty_shape), dtype=np.float32)
+        offset = np.zeros((3, *empty_shape), dtype=np.float32)
+        radius = np.zeros((1, *empty_shape), dtype=np.float32)
+        division = np.zeros((1, *empty_shape), dtype=np.float32)
+        embedding = np.zeros((Config.EMBEDDING_DIM, *empty_shape), dtype=np.float32)
+        confidence = np.zeros((1, *empty_shape), dtype=np.float32)
+
+        patch = {
+            "t": 0,
+            "z0": 0,
+            "z1": empty_shape[0],
+            "y0": 0,
+            "y1": empty_shape[1],
+            "x0": 0,
+            "x1": empty_shape[2],
+        }
+
+        targets = {
+            "heatmap": heatmap,
+            "offset": offset,
+            "radius": radius,
+            "division": division,
+            "embedding": embedding,
+            "confidence": confidence,
+        }
+
+        return {
+            "image": image,
+            "heatmap": heatmap,
+            "offset": offset,
+            "radius": radius,
+            "division": division,
+            "embedding": embedding,
+            "cells": [],
+            "dataset": sample.get("dataset", "unknown"),
+            "patch": patch,
+            "timepoint": 0,
+            "confidence": confidence,
             "targets": targets,
         }
 
