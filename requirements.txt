@@ -1,21 +1,23 @@
 # requirements-lock.txt
 # Exact-pinned versions for reproducible training runs.
-# Generated to stay within the compatibility ranges already tested
-# against MONAI 1.4.x (see requirements.txt for the flexible ranges).
+# Adjusted for Google Colab: numpy/pandas/tqdm/scipy raised just enough
+# to stop conflicting with Colab's pre-installed packages (opencv, jax,
+# cupy, rasterio, shap, google-colab, tsfresh, access), while keeping
+# torch/monai pinned exactly for training reproducibility.
 #
 # Usage:
 #   pip install -r requirements-lock.txt
 #
-# Do not bump these individually — if you need a newer torch/monai,
-# upgrade the whole set together and re-run the full test suite plus
-# a few training epochs before trusting results.
+# Do not bump torch/monai individually -- if you need a newer version,
+# upgrade both together and re-run the full test suite plus a few
+# training epochs before trusting results.
 
-PyYAML==6.0.2
-numpy==1.26.4
-pandas==2.2.3
-scipy==1.13.1
+PyYAML==6.0.3
+numpy==2.0.2
+pandas==2.2.2
+scipy==1.14.1
 networkx==3.3
-tqdm==4.66.5
+tqdm==4.67.1
 zarr==2.18.3
 numcodecs==0.15.1
 ome-zarr==0.9.0
