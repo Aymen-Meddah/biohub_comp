@@ -1,15 +1,27 @@
-PyYAML>=6.0.2
-numpy>=1.26,<2.5
-pandas>=2.2,<3.0
-scipy>=1.13,<2.0
-networkx>=3.2,<4.0
-tqdm>=4.4,<5.0
-zarr>=2.18,<3.0
-numcodecs>=0.14,<0.16
-ome-zarr>=0.8,<0.10
-filterpy>=1.0.3,<2.0
-monai>=1.4.0,<1.5
-torch>=2.3,<2.5
-torchvision>=0.18,<0.21
-torchaudio>=2.3,<2.5
-geff>=0.1.0,<0.2
+# requirements-lock.txt
+# Exact-pinned versions for reproducible training runs.
+# Generated to stay within the compatibility ranges already tested
+# against MONAI 1.4.x (see requirements.txt for the flexible ranges).
+#
+# Usage:
+#   pip install -r requirements-lock.txt
+#
+# Do not bump these individually — if you need a newer torch/monai,
+# upgrade the whole set together and re-run the full test suite plus
+# a few training epochs before trusting results.
+
+PyYAML==6.0.2
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.13.1
+networkx==3.3
+tqdm==4.66.5
+zarr==2.18.3
+numcodecs==0.15.1
+ome-zarr==0.9.0
+filterpy==1.4.5
+monai==1.4.0
+torch==2.4.1
+torchvision==0.19.1
+torchaudio==2.4.1
+geff==0.1.2
