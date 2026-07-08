@@ -32,37 +32,45 @@ class CellDecoder:
 
     ):
 
-        heatmap = torch.sigmoid(outputs["heatmap"][0, 0]).detach().cpu().numpy()
+        required_keys = {
+            "heatmap",
+            "offsets",
+            "radius",
+            "embedding",
+            "division",
+            "confidence",
+        }
+        if not required_keys.issubset(outputs.keys()):
+            return []
 
-        offsets = outputs["offsets"][0].detach().cpu().numpy()
+        try:
+            heatmap = torch.sigmoid(outputs["heatmap"][0, 0]).detach().cpu().numpy()
+            offsets = outputs["offsets"][0].detach().cpu().numpy()
+            radius = torch.sigmoid(outputs["radius"][0, 0]).detach().cpu().numpy()
+            embedding = outputs["embedding"][0].detach().cpu().numpy()
+            division = torch.sigmoid(outputs["division"][0, 0]).detach().cpu().numpy()
+            confidence = torch.sigmoid(outputs["confidence"][0, 0]).detach().cpu().numpy()
+        except Exception:
+            return []
 
-        radius = outputs["radius"][0, 0].detach().cpu().numpy()
-
-        embedding = outputs["embedding"][0].detach().cpu().numpy()
-
-        division = torch.sigmoid(outputs["division"][0, 0]).detach().cpu().numpy()
-
-        confidence = torch.sigmoid(
-            outputs["confidence"][0, 0]
-        ).detach().cpu().numpy()
+        if heatmap.ndim != 3:
+            return []
 
         peaks = self.peak_finder.find(heatmap)
-
-        if peaks is None:
-            peaks = []
+        if not peaks:
+            return []
 
         nodes = []
 
         for index, peak in enumerate(peaks):
-
             if not isinstance(peak, dict):
                 continue
 
-            z = peak.get("z")
-            y = peak.get("y")
-            x = peak.get("x")
-
-            if None in (z, y, x):
+            try:
+                z = int(peak["z"])
+                y = int(peak["y"])
+                x = int(peak["x"])
+            except (KeyError, TypeError, ValueError):
                 continue
 
             if not (
@@ -73,56 +81,28 @@ class CellDecoder:
                 continue
 
             try:
-                node = Node(
-
-                    node_id=index,
-
-                    dataset=dataset,
-
-                    t=timepoint,
-
-                    z=float(
-
-                        z + offsets[0, z, y, x]
-
-                    ),
-
-                    y=float(
-
-                        y + offsets[1, z, y, x]
-
-                    ),
-
-                    x=float(
-
-                        x + offsets[2, z, y, x]
-
-                    ),
-
-                    confidence=float(
-
-                        confidence[z, y, x]
-
-                    ),
-
-                    embedding=embedding[
-                        :,
-                        z,
-                        y,
-                        x
-                    ].tolist(),
-
-                    division_probability=float(
-
-                        division[z, y, x]
-
-                    )
-
-                )
+                offset_z = float(offsets[0, z, y, x])
+                offset_y = float(offsets[1, z, y, x])
+                offset_x = float(offsets[2, z, y, x])
+                confidence_score = float(confidence[z, y, x])
+                division_probability = float(division[z, y, x])
+                radius_value = float(radius[z, y, x])
+                embedding_vector = embedding[:, z, y, x].tolist()
             except (IndexError, ValueError, TypeError):
                 continue
 
-            node.radius = float(radius[z, y, x])
+            node = Node(
+                node_id=index,
+                dataset=dataset,
+                t=timepoint,
+                z=z + offset_z,
+                y=y + offset_y,
+                x=x + offset_x,
+                confidence=confidence_score,
+                embedding=embedding_vector,
+                division_probability=division_probability,
+            )
+            node.radius = radius_value
             nodes.append(node)
 
         return nodes

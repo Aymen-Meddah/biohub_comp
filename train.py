@@ -132,6 +132,7 @@ def main():
         LOGGER.info(f"Resumed from epoch {start_epoch}")
 
     history = []
+    epochs_since_improvement = 0
 
     for epoch in range(start_epoch, Config.EPOCHS):
         LOGGER.info(f"Epoch {epoch + 1}/{Config.EPOCHS}")
@@ -146,18 +147,10 @@ def main():
             else:
                 scheduler.step()
 
-        entry = {
-            "epoch": epoch + 1,
-            "train": train_history,
-            "validation": validation["metrics"],
-            "best_score": max(best_score, score),
-        }
-        history.append(entry)
-
-        LOGGER.info(json.dumps(entry, indent=2))
-
-        if score > best_score:
+        improved = score > best_score + Config.EARLY_STOPPING_MIN_DELTA
+        if improved:
             best_score = score
+            epochs_since_improvement = 0
             CHECKPOINT_MANAGER.save(
                 model=model,
                 optimizer=optimizer,
@@ -168,6 +161,35 @@ def main():
                 filename="best_model.pth",
             )
             LOGGER.info("Best checkpoint saved.")
+        else:
+            epochs_since_improvement += 1
+
+        if epochs_since_improvement >= Config.EARLY_STOPPING_PATIENCE:
+            LOGGER.warning(
+                "Early stopping triggered: validation F1 did not improve for "
+                f"{Config.EARLY_STOPPING_PATIENCE} epochs."
+            )
+            CHECKPOINT_MANAGER.save(
+                model=model,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                epoch=epoch,
+                score=best_score,
+                config={"epochs": Config.EPOCHS, "batch_size": Config.BATCH_SIZE},
+                filename="latest_checkpoint.pth",
+            )
+            save_summary(history, Config.OUTPUT_DIR / "training_summary.json")
+            break
+
+        entry = {
+            "epoch": epoch + 1,
+            "train": train_history,
+            "validation": validation["metrics"],
+            "best_score": best_score,
+        }
+        history.append(entry)
+
+        LOGGER.info(json.dumps(entry, indent=2))
 
         CHECKPOINT_MANAGER.save(
             model=model,

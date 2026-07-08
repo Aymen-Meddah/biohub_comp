@@ -119,6 +119,16 @@ class Evaluator:
 
         n = len(dataloader)
 
+        if n == 0:
+            return {
+                "tp": 0,
+                "fp": 0,
+                "fn": 0,
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1": 0.0,
+            }
+
         for key in [
 
             "precision",

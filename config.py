@@ -106,6 +106,10 @@ class Config(metaclass=ConfigMeta):
 
     SAVE_BEST_ONLY = True
 
+    EARLY_STOPPING_PATIENCE = 3
+
+    EARLY_STOPPING_MIN_DELTA = 1e-4
+
     CHECKPOINT_NAME = "best_model.pth"
 
     LAST_CHECKPOINT_NAME = "last_model.pth"

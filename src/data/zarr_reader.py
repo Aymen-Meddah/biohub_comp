@@ -8,9 +8,8 @@ class ZarrReader:
 
     def __init__(self, zarr_path: str | Path, array_key: Optional[str] = None):
         self.zarr_path = self._normalize_path(zarr_path)
+        self._validate_path_exists(self.zarr_path)
 
-        if not self.zarr_path.exists():
-            raise FileNotFoundError(f"Zarr file not found: {self.zarr_path}")
         try:
             import zarr
         except ImportError as exc:
@@ -19,8 +18,25 @@ class ZarrReader:
                 "Install the project requirements before loading data."
             ) from exc
 
-        store = zarr.open(self.zarr_path, mode="r")
+        try:
+            store = zarr.open(self.zarr_path, mode="r")
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise ValueError(
+                f"Unable to open Zarr data from path: {self.zarr_path}. "
+                "Verify that the path is a valid Zarr archive or group."
+            ) from exc
+
         self.volume = self._select_array(store, zarr, array_key)
+
+    @staticmethod
+    def _validate_path_exists(path: Path) -> None:
+        if not path.exists():
+            raise FileNotFoundError(f"Zarr file not found: {path}")
+
+        if not (path.is_file() or path.is_dir()):
+            raise FileNotFoundError(
+                f"Zarr path exists but is not a file or directory: {path}"
+            )
 
     @staticmethod
     def _normalize_path(zarr_path: Optional[str | Path]) -> Path:

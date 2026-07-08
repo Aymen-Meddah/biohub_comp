@@ -47,6 +47,9 @@ class Trainer:
             enabled=use_amp and device.type == "cuda",
         )
 
+        self.iteration = 0
+        self.step_counter = 0
+
     def train_epoch(
 
         self,
@@ -101,6 +104,9 @@ class Trainer:
                 set_to_none=True
             )
 
+            if self.device.type == "cuda" and self.step_counter % 50 == 0:
+                torch.cuda.empty_cache()
+
             with autocast(
                 device_type=self.device.type,
                 enabled=self.use_amp and self.device.type == "cuda",
@@ -147,6 +153,7 @@ class Trainer:
             )
 
             self.scaler.update()
+            self.step_counter += 1
 
             for k in history:
 

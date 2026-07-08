@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from monai.losses import DiceLoss
 
@@ -13,7 +14,11 @@ class LossManager(nn.Module):
         radius_weight=0.5,
         division_weight=1.0,
         embedding_weight=0.2,
-        confidence_weight=0.25
+        confidence_weight=0.25,
+        heatmap_pos_weight=2.0,
+        confidence_pos_weight=2.0,
+        focal_gamma=2.0,
+        focal_alpha=0.25,
     ):
 
         super().__init__()
@@ -32,23 +37,42 @@ class LossManager(nn.Module):
 
         self.mse = nn.MSELoss()
 
+        self.heatmap_pos_weight = heatmap_pos_weight
+        self.confidence_pos_weight = confidence_pos_weight
+        self.focal_gamma = focal_gamma
+        self.focal_alpha = focal_alpha
+
     def heatmap_loss(
         self,
         prediction,
         target
     ):
 
+        target = target.float()
+        prediction = prediction.float()
+
         dice = self.dice(
             prediction,
             target
         )
 
-        bce = self.bce(
+        pos_weight = torch.as_tensor(
+            self.heatmap_pos_weight,
+            device=prediction.device,
+        )
+        bce = nn.BCEWithLogitsLoss(
+            pos_weight=pos_weight,
+            reduction="mean",
+        )(prediction, target)
+
+        focal = self._focal_loss(
             prediction,
-            target
+            target,
+            gamma=self.focal_gamma,
+            alpha=self.focal_alpha,
         )
 
-        return dice + bce
+        return dice + bce + 0.5 * focal
     def confidence_loss(
 
     self,
@@ -59,13 +83,25 @@ class LossManager(nn.Module):
 
     ):
 
-        return self.bce(
+        target = target.float()
+        prediction = prediction.float()
+        pos_weight = torch.as_tensor(
+            self.confidence_pos_weight,
+            device=prediction.device,
+        )
+        bce = nn.BCEWithLogitsLoss(
+            pos_weight=pos_weight,
+            reduction="mean",
+        )(prediction, target)
 
+        focal = self._focal_loss(
             prediction,
+            target,
+            gamma=self.focal_gamma,
+            alpha=self.focal_alpha,
+        )
 
-            target
-
-     )
+        return bce + 0.5 * focal
     def offset_loss(
         self,
         prediction,
@@ -145,9 +181,9 @@ class LossManager(nn.Module):
 
         losses["confidence"] = self.confidence_loss(
 
-        outputs["confidence"],
+            outputs["confidence"],
 
-        targets["confidence"]
+            targets["confidence"]
 
         )
         total = (
@@ -180,3 +216,22 @@ class LossManager(nn.Module):
         losses["total"] = total
 
         return losses
+
+    def _focal_loss(self, prediction, target, gamma=2.0, alpha=0.25):
+        if target.numel() == 0:
+            return torch.tensor(0.0, device=prediction.device)
+
+        prediction = prediction.float()
+        target = target.float()
+
+        bce_loss = F.binary_cross_entropy_with_logits(
+            prediction,
+            target,
+            reduction="none",
+        )
+        probas = torch.sigmoid(prediction)
+        p_t = target * probas + (1 - target) * (1 - probas)
+        alpha_factor = target * alpha + (1 - target) * (1 - alpha)
+        modulating_factor = (1 - p_t) ** gamma
+
+        return (alpha_factor * modulating_factor * bce_loss).mean()
