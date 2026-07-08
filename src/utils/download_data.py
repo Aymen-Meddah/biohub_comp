@@ -14,7 +14,28 @@ def get_dataset_path() -> Path:
 
     env_path = os.environ.get("BIOHUB_DATA_ROOT")
     if env_path:
-        return Path(env_path)
+        env_path = Path(env_path)
+        if env_path.exists():
+            if (env_path / "train").exists() and (env_path / "test").exists():
+                return env_path
+            if env_path.name in {"train", "test"} and env_path.parent.exists():
+                return env_path.parent
+        return env_path
+
+    kaggle_root = Path("/kaggle/input")
+    if kaggle_root.exists():
+        for child in sorted(kaggle_root.iterdir()):
+            if not child.is_dir():
+                continue
+            if (child / "train").exists() and (child / "test").exists():
+                return child
+        for child in sorted(kaggle_root.iterdir()):
+            if not child.is_dir():
+                continue
+            lower_name = child.name.lower()
+            if "biohub" in lower_name and "train" not in lower_name:
+                if (child / "train").exists() and (child / "test").exists():
+                    return child
 
     is_kaggle_environment = any(
         os.environ.get(name) is not None

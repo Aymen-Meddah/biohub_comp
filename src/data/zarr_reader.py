@@ -38,7 +38,7 @@ class ZarrReader:
                 if store_cls is None:
                     continue
                 try:
-                    return zarr_module.open(store_cls(path_str), mode="r")
+                    return zarr_module.open_group(store_cls(path_str), mode="r")
                 except Exception:
                     continue
 
@@ -49,21 +49,21 @@ class ZarrReader:
                 pass
 
             try:
-                return zarr_module.open(path_str, mode="r")
+                return zarr_module.open_group(zarr_module.storage.DirectoryStore(path_str), mode="r")
             except Exception:
                 pass
 
         if path.is_file():
-            if path.suffix == ".zarr":
+            if path.suffix in {".zarr", ".zip"}:
                 zip_store_cls = getattr(zarr_module, "ZipStore", None) or getattr(zarr_module.storage, "ZipStore", None)
                 if zip_store_cls is not None:
                     try:
-                        return zarr_module.open(zip_store_cls(path_str), mode="r")
+                        return zarr_module.open_group(zip_store_cls(path_str), mode="r")
                     except Exception:
                         pass
 
             try:
-                return zarr_module.open(path_str, mode="r")
+                return zarr_module.open_group(path_str, mode="r")
             except Exception:
                 pass
 
@@ -72,7 +72,7 @@ class ZarrReader:
                 fs = fsspec.filesystem("file")
                 fs_store_cls = getattr(zarr_module.storage, "FSStore", None)
                 if fs_store_cls is not None:
-                    return zarr_module.open(fs_store_cls(path_str, mode="r", fs=fs), mode="r")
+                    return zarr_module.open_group(fs_store_cls(path_str, mode="r", fs=fs), mode="r")
             except Exception:
                 pass
 
@@ -122,22 +122,91 @@ class ZarrReader:
             return store
 
         if array_key is not None:
-            return store[array_key]
+            try:
+                return store[array_key]
+            except Exception:
+                raise ValueError(f"Requested Zarr array key '{array_key}' not found.")
 
-        preferred_keys = ("0", "raw", "image", "images", "volume")
-        for key in preferred_keys:
-            if key in store and hasattr(store[key], "shape") and hasattr(store[key], "dtype"):
-                return store[key]
+        image_array = ZarrReader._find_image_array(store)
+        if image_array is None:
+            raise ValueError("No image array found inside Zarr group.")
 
-        arrays = [
-            key
-            for key, value in store.items()
-            if hasattr(value, "shape") and hasattr(value, "dtype")
-        ]
-        if not arrays:
-            raise ValueError("No array found inside zarr group.")
+        return image_array
 
-        return store[sorted(arrays)[0]]
+    @staticmethod
+    def _find_image_array(group: Any):
+        if hasattr(group, "shape") and hasattr(group, "dtype"):
+            return group
+
+        if ZarrReader._is_ome_zarr(group):
+            dataset = ZarrReader._select_ome_zarr_dataset(group)
+            if dataset is not None:
+                return dataset
+
+        arrays = ZarrReader._list_image_arrays(group)
+        if arrays:
+            return arrays[0]
+
+        return None
+
+    @staticmethod
+    def _is_ome_zarr(group: Any) -> bool:
+        return isinstance(getattr(group, "attrs", None), dict) and "multiscales" in group.attrs
+
+    @staticmethod
+    def _select_ome_zarr_dataset(group: Any):
+        multiscales = group.attrs.get("multiscales")
+        if not isinstance(multiscales, (list, tuple)):
+            return None
+
+        for spec in multiscales:
+            if not isinstance(spec, dict):
+                continue
+
+            datasets = spec.get("datasets") or spec.get("paths") or []
+            if isinstance(datasets, dict):
+                datasets = [datasets]
+
+            candidate_paths = []
+            if isinstance(datasets, list):
+                for dataset in datasets:
+                    if isinstance(dataset, str):
+                        candidate_paths.append(dataset)
+                    elif isinstance(dataset, dict):
+                        key = dataset.get("path") or dataset.get("name")
+                        if key:
+                            candidate_paths.append(key)
+
+            if not candidate_paths and isinstance(spec.get("path"), str):
+                candidate_paths.append(spec.get("path"))
+
+            for path in candidate_paths:
+                if not path:
+                    continue
+                try:
+                    array = group[path]
+                    if hasattr(array, "shape") and hasattr(array, "dtype"):
+                        return array
+                except Exception:
+                    continue
+
+        arrays = ZarrReader._list_image_arrays(group)
+        return arrays[0] if arrays else None
+
+    @staticmethod
+    def _list_image_arrays(group: Any, prefix: str = ""):
+        arrays = []
+        for key in sorted(group.keys()):
+            try:
+                item = group[key]
+            except Exception:
+                continue
+            if hasattr(item, "shape") and hasattr(item, "dtype"):
+                if len(item.shape) >= 3:
+                    arrays.append(item)
+            else:
+                arrays.extend(ZarrReader._list_image_arrays(item, prefix=f"{prefix}{key}/"))
+        return arrays
 
     @property
     def shape(self):
