@@ -209,35 +209,53 @@ class BioHubDataset(Dataset):
 
     def _filter_samples(self, samples):
         valid_samples = []
+
         for sample in samples:
             zarr_path = sample.get("zarr")
+
             if not zarr_path:
-                print(f"Rejected sample {sample}: missing zarr path")
+                print(f"Rejected sample: missing zarr path")
                 continue
 
-            zarr_path_obj = Path(zarr_path)
-            if not zarr_path_obj.exists():
-                print(f"Rejected sample {sample['dataset']}: zarr path does not exist -> {zarr_path_obj}")
+            zarr_path = Path(zarr_path)
+
+            if not zarr_path.exists():
+                print(f"Rejected {sample['dataset']}: path does not exist")
                 continue
 
-            if zarr_path_obj.is_dir():
-                if not (
-                    (zarr_path_obj / ".zarray").exists()
-                    or (zarr_path_obj / ".zgroup").exists()
-                ):
-                    print(f"Rejected sample {sample['dataset']}: directory is not a valid zarr store -> {zarr_path_obj}")
+        # ---------- Support Zarr V2 and V3 ----------
+            if zarr_path.is_dir():
+
+                is_v2 = (
+                    (zarr_path / ".zarray").exists()
+                    or
+                    (zarr_path / ".zgroup").exists()
+                )
+
+                is_v3 = (
+                    (zarr_path / "zarr.json").exists()
+                )
+
+                if not (is_v2 or is_v3):
+                    print(
+                        f"Rejected {sample['dataset']}: "
+                        f"not a valid Zarr store -> {zarr_path}"
+                    )
                     continue
 
-            if not sample.get("geff"):
-                print(f"Rejected sample {sample['dataset']}: missing geff path")
+            geff = sample.get("geff")
+
+            if geff is None:
+                print(f"Rejected {sample['dataset']}: missing geff")
                 continue
 
-            if not Path(sample["geff"]).exists():
-                print(f"Rejected sample {sample['dataset']}: geff path does not exist -> {sample['geff']}")
+            if not Path(geff).exists():
+                print(f"Rejected {sample['dataset']}: geff not found")
                 continue
 
-            print(f"Accepted sample {sample['dataset']}: zarr={zarr_path_obj} geff={sample['geff']}")
+            print(f"Accepted {sample['dataset']}")
             valid_samples.append(sample)
+
         return valid_samples
 
     def _build_fallback_sample(self, sample, error):
