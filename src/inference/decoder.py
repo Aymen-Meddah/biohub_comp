@@ -10,7 +10,8 @@ class CellDecoder:
 
         self,
 
-        threshold=0.30
+        threshold=0.30,
+        max_detections=100,
 
     ):
 
@@ -19,6 +20,10 @@ class CellDecoder:
             threshold=threshold
 
         )
+        # minimum combined score threshold (heatmap * confidence)
+        self.threshold = float(threshold)
+        # max detections per frame to limit false positives
+        self.max_detections = int(max_detections)
 
     def decode(
 
@@ -44,21 +49,45 @@ class CellDecoder:
             return []
 
         try:
-            heatmap = torch.sigmoid(outputs["heatmap"][0, 0]).detach().cpu().numpy()
+            # keep tensors where convenient for potential further ops
+            heatmap_t = torch.sigmoid(outputs["heatmap"][0, 0])
+            heatmap = heatmap_t.detach().cpu().numpy()
             offsets = outputs["offsets"][0].detach().cpu().numpy()
             radius = torch.sigmoid(outputs["radius"][0, 0]).detach().cpu().numpy()
             embedding = outputs["embedding"][0].detach().cpu().numpy()
             division = torch.sigmoid(outputs["division"][0, 0]).detach().cpu().numpy()
-            confidence = torch.sigmoid(outputs["confidence"][0, 0]).detach().cpu().numpy()
+            confidence_t = torch.sigmoid(outputs["confidence"][0, 0])
+            confidence = confidence_t.detach().cpu().numpy()
         except Exception:
             return []
 
         if heatmap.ndim != 3:
             return []
 
+        # find local peaks in the heatmap (NMS + thresholding)
         peaks = self.peak_finder.find(heatmap)
         if not peaks:
             return []
+
+        # filter by combined score (heatmap score * confidence) and keep top-K
+        for p in peaks:
+            z = int(p["z"]) ; y = int(p["y"]) ; x = int(p["x"])
+            # safety check in case shapes mismatch
+            try:
+                conf = float(confidence[z, y, x])
+            except Exception:
+                conf = 0.0
+            p["confidence"] = conf
+            p["combined_score"] = float(p["score"]) * conf
+
+        # reject by combined score threshold
+        peaks = [p for p in peaks if p.get("combined_score", 0.0) >= self.threshold]
+        if not peaks:
+            return []
+
+        # sort by combined score and keep top detections
+        peaks.sort(key=lambda x: x.get("combined_score", 0.0), reverse=True)
+        peaks = peaks[: self.max_detections]
 
         nodes = []
 
