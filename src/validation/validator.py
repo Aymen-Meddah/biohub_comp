@@ -45,9 +45,9 @@ class Validator:
 
         )
 
-        current_score = results["f1"]
+        current_score = float(results["f1"])
 
-        is_best = current_score > self.best_score
+        is_best = current_score > self.best_score + 1e-12
 
         if is_best:
 

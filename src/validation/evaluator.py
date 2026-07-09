@@ -53,21 +53,9 @@ class Evaluator:
 
         self.model.eval()
 
-        total = {
-
-            "tp":0,
-
-            "fp":0,
-
-            "fn":0,
-
-            "precision":0.0,
-
-            "recall":0.0,
-
-            "f1":0.0
-
-        }
+        total_tp = 0
+        total_fp = 0
+        total_fn = 0
 
         for batch in tqdm(dataloader):
 
@@ -103,23 +91,11 @@ class Evaluator:
 
             )
 
-            result = self.metrics.compute(
+            total_tp += len(matches)
+            total_fp += len(fp)
+            total_fn += len(fn)
 
-                matches,
-
-                fp,
-
-                fn
-
-            )
-
-            for key in total:
-
-                total[key] += result[key]
-
-        n = len(dataloader)
-
-        if n == 0:
+        if len(dataloader) == 0:
             return {
                 "tp": 0,
                 "fp": 0,
@@ -129,16 +105,24 @@ class Evaluator:
                 "f1": 0.0,
             }
 
-        for key in [
+        precision = 0.0
+        recall = 0.0
+        f1 = 0.0
 
-            "precision",
+        if total_tp + total_fp > 0:
+            precision = total_tp / (total_tp + total_fp)
 
-            "recall",
+        if total_tp + total_fn > 0:
+            recall = total_tp / (total_tp + total_fn)
 
-            "f1"
+        if precision + recall > 0:
+            f1 = 2 * precision * recall / (precision + recall)
 
-        ]:
-
-            total[key] /= n
-
-        return total
+        return {
+            "tp": total_tp,
+            "fp": total_fp,
+            "fn": total_fn,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
+        }
