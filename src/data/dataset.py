@@ -212,10 +212,12 @@ class BioHubDataset(Dataset):
         for sample in samples:
             zarr_path = sample.get("zarr")
             if not zarr_path:
+                print(f"Rejected sample {sample}: missing zarr path")
                 continue
 
             zarr_path_obj = Path(zarr_path)
             if not zarr_path_obj.exists():
+                print(f"Rejected sample {sample['dataset']}: zarr path does not exist -> {zarr_path_obj}")
                 continue
 
             if zarr_path_obj.is_dir():
@@ -223,8 +225,18 @@ class BioHubDataset(Dataset):
                     (zarr_path_obj / ".zarray").exists()
                     or (zarr_path_obj / ".zgroup").exists()
                 ):
+                    print(f"Rejected sample {sample['dataset']}: directory is not a valid zarr store -> {zarr_path_obj}")
                     continue
 
+            if not sample.get("geff"):
+                print(f"Rejected sample {sample['dataset']}: missing geff path")
+                continue
+
+            if not Path(sample["geff"]).exists():
+                print(f"Rejected sample {sample['dataset']}: geff path does not exist -> {sample['geff']}")
+                continue
+
+            print(f"Accepted sample {sample['dataset']}: zarr={zarr_path_obj} geff={sample['geff']}")
             valid_samples.append(sample)
         return valid_samples
 
