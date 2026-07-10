@@ -56,9 +56,9 @@ class Config(metaclass=ConfigMeta):
 
     CACHE_DIR = OUTPUT_DIR / "cache"
 
-    BATCH_SIZE = 1
+    BATCH_SIZE = 4
 
-    VALIDATION_BATCH_SIZE = 1
+    VALIDATION_BATCH_SIZE = 4
 
     NUM_WORKERS = 0
 
@@ -72,7 +72,7 @@ class Config(metaclass=ConfigMeta):
 
     EPOCHS = 100
 
-    LEARNING_RATE = 1e-4
+    LEARNING_RATE = 5e-4
 
     WEIGHT_DECAY = 1e-4
 
@@ -80,23 +80,23 @@ class Config(metaclass=ConfigMeta):
 
     IMAGE_SIZE = (32, 128, 128)
 
-    HEATMAP_SIGMA = 2.5
+    HEATMAP_SIGMA = 1.5
 
     EMBEDDING_DIM = 16
 
     MAX_CELL_RADIUS = 20
 
-    CONFIDENCE_THRESHOLD = 0.15
+    CONFIDENCE_THRESHOLD = 0.5
 
     LR_SCHEDULER_MODE = "max"
 
     LR_SCHEDULER_FACTOR = 0.5
 
-    LR_SCHEDULER_PATIENCE = 3
+    LR_SCHEDULER_PATIENCE = 5
 
     LR_SCHEDULER_MIN_LR = 1e-6
 
-    MATCHING_DISTANCE = 30.0
+    MATCHING_DISTANCE = 10.0
 
     MAX_TRACK_MISSING = 5
 
@@ -106,7 +106,7 @@ class Config(metaclass=ConfigMeta):
 
     SAVE_BEST_ONLY = True
 
-    EARLY_STOPPING_PATIENCE = 3
+    EARLY_STOPPING_PATIENCE = 10
 
     EARLY_STOPPING_MIN_DELTA = 1e-4
 
