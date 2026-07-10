@@ -8,12 +8,6 @@ from monai.losses import DiceLoss
 class LossManager(nn.Module):
     """
     Loss manager for cell detection with CenterNet-style approach.
-
-    Key fixes from original:
-    1. Fixed focal loss alpha (was inverted: 0.25 -> now 0.75 for positives)
-    2. Removed redundant BCE+pos_weight when focal is active
-    3. Added proper positive pixel weighting
-    4. Added gradient clipping protection
     """
 
     def __init__(
@@ -24,20 +18,16 @@ class LossManager(nn.Module):
         division_weight=1.0,
         embedding_weight=0.2,
         confidence_weight=0.25,
-        # Focal loss params: alpha is POSITIVE class weight
         focal_gamma=2.0,
-        focal_alpha=0.75,  # CHANGED: was 0.25 (inverted!)
-        # BCE pos_weight: additional weight for positive class
+        focal_alpha=0.75,
         heatmap_pos_weight=2.0,
         confidence_pos_weight=2.0,
-        # Loss composition
         use_dice=True,
         use_focal=True,
         use_bce=True,
         dice_weight=1.0,
         focal_weight=0.5,
         bce_weight=1.0,
-        # Numerical stability
         eps=1e-6,
     ):
         super().__init__()
@@ -67,20 +57,15 @@ class LossManager(nn.Module):
         self.mse = nn.MSELoss()
 
     def heatmap_loss(self, prediction, target):
-        """
-        Combined heatmap loss: Dice + Weighted BCE + Focal
-        """
+        """Combined heatmap loss: Dice + Weighted BCE + Focal"""
         target = target.float()
         prediction = prediction.float()
-
         loss = 0.0
 
-        # 1. Dice Loss (handles class imbalance naturally)
         if self.use_dice:
             dice = self.dice(prediction, target)
             loss = loss + self.dice_weight * dice
 
-        # 2. BCE with positive weighting
         if self.use_bce:
             pos_weight = torch.as_tensor(
                 self.heatmap_pos_weight,
@@ -93,7 +78,6 @@ class LossManager(nn.Module):
             )
             loss = loss + self.bce_weight * bce
 
-        # 3. Focal Loss (down-weights easy negatives)
         if self.use_focal:
             focal = self._focal_loss(prediction, target)
             loss = loss + self.focal_weight * focal
@@ -101,12 +85,9 @@ class LossManager(nn.Module):
         return loss
 
     def confidence_loss(self, prediction, target):
-        """
-        Confidence loss for cell division detection
-        """
+        """Confidence loss for cell division detection"""
         target = target.float()
         prediction = prediction.float()
-
         loss = 0.0
 
         if self.use_bce:
@@ -128,34 +109,39 @@ class LossManager(nn.Module):
         return loss
 
     def offset_loss(self, prediction, target):
-        """L1 loss for offset regression"""
-        # Only compute where target is valid (mask out background)
-        mask = (target.abs().sum(dim=1, keepdim=True) > 0).float()
+        """L1 loss for offset regression - FIXED MASK"""
+        # FIXED: Use proper mask for offset
+        # Offset target has shape (B, 2, H, W) with small values
+        # We mask where the heatmap is positive, not where offset is non-zero
+        # But since we don't have heatmap here, we use a threshold
+        
+        # Method 1: Mask where offset magnitude is significant
+        # offset values are typically 0 to 1 (fractional part)
+        mask = (target.abs().sum(dim=1, keepdim=True) > 1e-3).float()
+        
         if mask.sum() == 0:
-            return torch.tensor(0.0, device=prediction.device)
+            # If no valid pixels, return small loss to avoid NaN
+            return torch.tensor(0.01, device=prediction.device)
 
         diff = (prediction - target).abs()
         return (diff * mask).sum() / (mask.sum() + self.eps)
 
     def radius_loss(self, prediction, target):
         """L1 loss for radius regression"""
-        # Only compute where target is valid
+        # Radius target: positive where cells exist
         mask = (target > 0).float()
+        
         if mask.sum() == 0:
-            return torch.tensor(0.0, device=prediction.device)
+            return torch.tensor(0.01, device=prediction.device)
 
         diff = (prediction - target).abs()
         return (diff * mask).sum() / (mask.sum() + self.eps)
 
     def division_loss(self, prediction, target):
-        """
-        BCE loss for division classification
-        Added pos_weight to handle class imbalance
-        """
+        """BCE loss for division classification"""
         target = target.float()
         prediction = prediction.float()
 
-        # Compute positive weight based on class imbalance
         num_pos = (target > 0.5).sum().float()
         num_neg = (target < 0.5).sum().float()
 
@@ -171,11 +157,12 @@ class LossManager(nn.Module):
         )
 
     def embedding_loss(self, prediction, target):
-        """MSE loss for embeddings (used for tracking)"""
-        # Only compute where target is valid
-        mask = (target.abs().sum(dim=1, keepdim=True) > 0).float()
+        """MSE loss for embeddings - FIXED MASK"""
+        # FIXED: Use proper mask for embedding
+        mask = (target.abs().sum(dim=1, keepdim=True) > 1e-3).float()
+        
         if mask.sum() == 0:
-            return torch.tensor(0.0, device=prediction.device)
+            return torch.tensor(0.01, device=prediction.device)
 
         diff = (prediction - target) ** 2
         return (diff * mask).sum() / (mask.sum() + self.eps)
@@ -229,44 +216,23 @@ class LossManager(nn.Module):
         return losses
 
     def _focal_loss(self, prediction, target):
-        """
-        Fixed focal loss.
-
-        alpha: weight for POSITIVE class (0.75 means positives matter more)
-        gamma: down-weighting factor for easy examples
-
-        Original had alpha=0.25 which INVERTED the weighting!
-        """
+        """Fixed focal loss with correct alpha"""
         if target.numel() == 0:
             return torch.tensor(0.0, device=prediction.device)
 
         prediction = prediction.float()
         target = target.float()
 
-        # Compute BCE (without reduction)
         bce_loss = F.binary_cross_entropy_with_logits(
             prediction, target, reduction="none"
         )
 
-        # Sigmoid probabilities
         probas = torch.sigmoid(prediction)
-
-        # p_t: probability of correct class
-        # For positive targets: p_t = probas
-        # For negative targets: p_t = 1 - probas
         p_t = target * probas + (1 - target) * (1 - probas)
-
-        # Alpha factor: weight for positive vs negative
-        # FIXED: alpha=0.75 gives MORE weight to positives
         alpha_factor = target * self.focal_alpha + (1 - target) * (1 - self.focal_alpha)
-
-        # Modulating factor: down-weight easy examples
         modulating_factor = torch.pow(1.0 - p_t, self.focal_gamma)
 
-        # Combine
         focal_loss = alpha_factor * modulating_factor * bce_loss
-
-        # Normalize by number of positive samples (not all pixels!)
         num_pos = target.sum().clamp(min=1.0)
 
         return focal_loss.sum() / num_pos
